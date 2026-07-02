@@ -10,15 +10,15 @@ não imagem rasterizada) e devolve a expressão em **LaTeX normalizado** — no 
 
 ## Monorepo
 
-| Pacote      | Stack             | Papel                                                                 |
-|-------------|-------------------|----------------------------------------------------------------------|
-| `ml/`       | Python + PyTorch  | Dados (InkML→tensores), tokenizer, modelo, treino, avaliação, inferência |
-| `api/`      | Python + FastAPI  | `POST /recognize` (tinta→LaTeX), `POST /evaluate` (LaTeX→resultado)   |
-| `web/`      | Next.js + canvas  | Captura de tinta (PointerEvents), envio à API, render KaTeX          |
-| `schemas/`  | JSON Schema       | **Contrato único da tinta** compartilhado por web/api/ml             |
-| `docs/`     | Markdown          | Visão, datasets, ADRs, roadmap                                       |
+| Pacote       | Stack            | Papel                                                                        |
+| ------------ | ---------------- | ---------------------------------------------------------------------------- |
+| `ml/`      | Python + PyTorch | Dados (InkML→tensores), tokenizer, modelo, treino, avaliação, inferência |
+| `api/`     | Python + FastAPI | `POST /recognize` (tinta→LaTeX), `POST /evaluate` (LaTeX→resultado)    |
+| `web/`     | Next.js + canvas | Captura de tinta (PointerEvents), envio à API, render KaTeX                 |
+| `schemas/` | JSON Schema      | **Contrato único da tinta** compartilhado por web/api/ml              |
+| `docs/`    | Markdown         | Visão, datasets, ADRs, roadmap                                              |
 
-## Decisões-chave (não reabrir sem perguntar)
+## Decisões-chave
 
 - Entrada = **tinta online** (traços/pontos), não imagem. Render→imagem é upgrade futuro.
 - Saída = **LaTeX normalizado**.
