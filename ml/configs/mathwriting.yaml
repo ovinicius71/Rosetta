@@ -1,26 +1,49 @@
-# Fase 2 — Escalar para MathWriting (humanas + sintéticas) com augmentation e avaliação.
+# Fase 2 (continuação) — Escalar para MathWriting (humanas + sintéticas).
+# Pré-requisito: baixar o dataset (ver docs/datasets.md) em data/mathwriting/.
 _base_: base.yaml
 
 data:
   dataset: mathwriting
-  root: data/mathwriting
+  root: data/mathwriting/train
   use_synthetic: true
   max_points: 1024
-  augment: true               # ver data/augment.py
+  augment: true
+  augment_cfg:
+    jitter_sigma: 0.01
+    scale_range: [0.85, 1.15]
+    rotate_max_deg: 6.0
+    point_dropout: 0.03
+
+tokenizer:
+  vocab_path: artifacts/vocab_mathwriting.json   # vocab por dataset
 
 model:
   d_model: 256
-  encoder: { type: bigru, hidden: 256, layers: 2 }
+  encoder: { type: bigru, hidden: 256, layers: 2, dropout: 0.3 }
   # Para experimentar Transformer encoder (mais VRAM):
   # encoder: { type: transformer, layers: 4, heads: 4, ff: 1024 }
+  decoder: { layers: 3, heads: 4, ff: 1024, dropout: 0.3 }
 
 train:
   epochs: 40
   batch_size: 16
   grad_accum: 4               # batch efetivo 64 sem estourar VRAM
   lr: 3.0e-4
+  warmup_steps: 4000
+  scheduler: inv_sqrt
+  label_smoothing: 0.1
+  grad_clip: 1.0
   amp: true
   bucket_by_length: true
+  num_workers: 4
+
+infer:
+  beam_size: 4
+  max_len: 256
+
+checkpoint:
+  dir: checkpoints/mathwriting
+  save_every_steps: 2000
 
 eval:
   metrics: ["cer", "exact_match"]

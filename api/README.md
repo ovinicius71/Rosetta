@@ -1,4 +1,4 @@
-# api/ — serviço FastAPI
+# api/ — serviço FastAPI (Rosetta)
 
 Ponte entre o canvas (web) e o modelo (ml).
 
@@ -11,10 +11,17 @@ Ponte entre o canvas (web) e o modelo (ml).
 
 O corpo de `/recognize` segue **`schemas/ink.schema.json`** (espelhado em `schemas.py`).
 
-## Rodar
-```bash
-uv run uvicorn hmer_api.main:app --reload --port 8000
+## Rodar (da RAIZ do repo — caminhos do config são relativos a ela)
+
+```powershell
+$env:PYTHONPATH = "api/src;ml/src"
+$env:HMER_CKPT  = "checkpoints/crohme/last.ckpt"     # ou overfit_crohme p/ teste
+$env:HMER_CONFIG = "ml/configs/crohme.yaml"          # config do TREINO do checkpoint
+C:\HMER\venv\Scripts\python.exe -m uvicorn hmer_api.main:app --port 8000
 ```
 
-O modelo é carregado no startup via `hmer_ml.infer.Recognizer` (checkpoint/ONNX). Sem
-checkpoint treinado ainda → endpoints devolvem stub/501 até a Fase 3.
+Variáveis: `HMER_CKPT` (sem ela → 501 stub), `HMER_CONFIG` (arquitetura + vocab do
+checkpoint), `HMER_DEVICE` (`cpu` default — não disputa a GPU com treino em andamento).
+
+O modelo carrega no primeiro request (lazy). `/evaluate` usa SymPy (`parse_latex`):
+aritmética exata, frações, raízes, resolve equações de 1 incógnita.

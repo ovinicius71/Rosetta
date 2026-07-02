@@ -1,6 +1,7 @@
 # ---- Datasets & artefatos pesados (NUNCA no git — ver docs/datasets.md) ----
 data/
 datasets/
+artifacts/          # vocab.json e afins — derivados dos dados, regeneráveis
 *.inkml
 checkpoints/
 *.ckpt

@@ -24,7 +24,7 @@ export default function Home() {
 
   return (
     <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-      <h1>HMER — escreva matemática à mão</h1>
+      <h1>Rosetta — escreva matemática à mão</h1>
       <InkCanvas width={640} height={360} onRecognize={handleRecognize} />
       {status && <p style={{ opacity: 0.7 }}>{status}</p>}
       <LatexView latex={latex} />

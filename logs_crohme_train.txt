@@ -1,0 +1,6 @@
+[train] device=cuda amp=True
+[train] 8901 amostras
+[train] indexando comprimentos p/ bucketing (1x, pode demorar)...
+[train] parâmetros: 5.33M
+[train] epoch    0  loss 3.8313  lr 8.34e-05
+[train] epoch    3  loss 2.5824  lr 2.84e-04

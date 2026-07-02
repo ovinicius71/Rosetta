@@ -1,9 +1,9 @@
 # Raiz do workspace Python (uv). Une os pacotes ml/ e api/.
 # Ver docs/adr/0005-python-dependency-uv.md
 [project]
-name = "hmer-monorepo"
+name = "rosetta"
 version = "0.0.0"
-description = "Online HMER monorepo (ml + api)"
+description = "Rosetta — reconhecimento de matemática manuscrita (tinta online -> LaTeX)"
 requires-python = ">=3.10"
 
 [tool.uv.workspace]

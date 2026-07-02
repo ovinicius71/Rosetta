@@ -27,10 +27,15 @@ data/
 
 ## 2. CROHME (2011–2019) — **secundário / benchmark**
 - **~8.836 amostras de treino**; InkML com trajetória + GT em **LaTeX e MathML**.
-- Conjuntos de teste **2014 / 2016 / 2019**.
+- Conjuntos de teste **2014 / 2016 / 2019** (986 / 1.147 / 1.199 expressões).
 - Menor → ideal para **validar o pipeline rápido** antes de escalar p/ MathWriting.
-- Distribuído pelas competições CROHME (TC11 / conferências ICDAR-ICFHR).
-  Referência: https://www.isical.ac.in/~crohme/  (e mirrors das edições).
+- Fontes (confirmadas jul/2026):
+  - **Kaggle** (mais direto, InkML pronto): https://www.kaggle.com/datasets/ntcuong2103/crohme2019
+  - **Página oficial RIT / CROHME 2019:** https://www.cs.rit.edu/~crohme2019/dataANDtools.html
+  - Catálogo TC10/TC11: https://tc101-demo.github.io/datasets/ICDAR2019-CROHME-TDF_1/
+- Estrutura do InkML: label da **expressão** em `<annotation type="truth">` (filho direto de
+  `<ink>`); os `<traceGroup>` contêm truths **por símbolo** — nosso parser ignora esses e
+  pega só o da expressão (ver `data/inkml.py::_extract_label`).
 
 ## Formato InkML (resumo)
 XML com traços em `<trace>` (listas de `x y [t]` separados por vírgula) e anotações em

@@ -1,0 +1,45 @@
+# Fase 2 — Treino COMPLETO no CROHME (8.901 amostras) com augmentation.
+# Dimensionado para a RTX 5050 Laptop (8 GB): modelo compacto + AMP + grad accum.
+# Avaliar com: python -m hmer_ml.evaluate --config configs/crohme.yaml \
+#   --ckpt checkpoints/crohme/last.ckpt --root data/crohme/valid
+_base_: base.yaml
+
+data:
+  dataset: crohme
+  root: data/crohme/train
+  max_points: 1024
+  augment: true
+  augment_cfg:
+    jitter_sigma: 0.01
+    scale_range: [0.85, 1.15]
+    rotate_max_deg: 6.0
+    point_dropout: 0.03
+
+tokenizer:
+  vocab_path: artifacts/vocab_crohme.json   # compartilhado com overfit_crohme (mesmo dataset)
+
+model:
+  d_model: 256
+  encoder: { type: bigru, hidden: 256, layers: 2, dropout: 0.3 }
+  decoder: { layers: 3, heads: 4, ff: 1024, dropout: 0.3 }
+
+train:
+  epochs: 60
+  batch_size: 16
+  grad_accum: 2               # batch efetivo 32
+  lr: 3.0e-4
+  warmup_steps: 1000
+  scheduler: inv_sqrt
+  label_smoothing: 0.1
+  grad_clip: 1.0
+  amp: true
+  bucket_by_length: true
+  num_workers: 4
+
+infer:
+  beam_size: 4
+  max_len: 256
+
+checkpoint:
+  dir: checkpoints/crohme
+  save_every_steps: 1000

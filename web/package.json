@@ -1,5 +1,5 @@
 {
-  "name": "hmer-web",
+  "name": "rosetta-web",
   "version": "0.0.0",
   "private": true,
   "description": "Canvas de desenho: captura tinta, envia à API, renderiza LaTeX (KaTeX).",

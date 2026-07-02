@@ -1,0 +1,36 @@
+# Fase 1 — PROVA RÁPIDA com dados SINTÉTICOS (sem download).
+# Objetivo: loss → ~0 e o modelo reproduzir o LaTeX das amostras. Prova que o seq2seq
+# aprende ponta a ponta antes de escalar para CROHME/MathWriting.
+# Gere os dados: python -m hmer_ml.data.synth --out data/synth --n 32
+_base_: base.yaml
+
+data:
+  dataset: synth
+  root: data/synth
+  subset_size: 32
+  max_points: 512
+  normalize: true
+
+tokenizer:
+  vocab_path: artifacts/vocab_synth.json   # vocab por dataset — nunca reusa o errado
+
+model:
+  d_model: 128
+  encoder: { type: bigru, hidden: 128, layers: 1 }
+  decoder: { layers: 2, heads: 4, ff: 512 }
+
+train:
+  epochs: 400
+  batch_size: 8
+  grad_accum: 1
+  lr: 7.0e-4
+  warmup_steps: 40
+  scheduler: constant      # LR fixa após warmup → memoriza o subset (overfit)
+  label_smoothing: 0.0     # queremos memorizar
+  bucket_by_length: false
+  amp: false               # CPU-only aqui; AMP liga sozinho quando houver CUDA
+  num_workers: 0           # dataset minúsculo: workers só adicionam overhead
+
+checkpoint:
+  dir: checkpoints/overfit_synth
+  save_every_steps: 100000  # não precisa salvar no meio do overfit

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
-// TODO(Fase 3): import "katex/dist/katex.min.css"; para estilizar o render do LaTeX.
+import "katex/dist/katex.min.css";
 
 export const metadata: Metadata = {
-  title: "HMER — Math Notes",
+  title: "Rosetta — Math Notes",
   description: "Escreva matemática à mão e obtenha LaTeX.",
 };
 

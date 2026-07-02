@@ -14,9 +14,25 @@ from hmer_ml.data.ink import (
     ink_to_features,
     normalize,
 )
+from hmer_ml.data.inkml import parse_inkml
 from hmer_ml.tokenizer import LatexTokenizer
 
 REPO = Path(__file__).resolve().parents[2]
+
+# InkML no formato CROHME: truth da expressão + <traceGroup> com truths por símbolo.
+_CROHME_INKML = """<ink xmlns="http://www.w3.org/2003/InkML">
+  <annotation type="UI">dummy</annotation>
+  <annotation type="truth">$\\frac { 1 } { 2 }$</annotation>
+  <trace id="0">0 0, 1 1</trace>
+  <trace id="1">5 5, 6 4</trace>
+  <traceGroup xml:id="tg">
+    <annotation type="truth">Segmentation</annotation>
+    <traceGroup xml:id="tg0">
+      <annotation type="truth">\\frac</annotation>
+      <traceView traceDataRef="0"/>
+    </traceGroup>
+  </traceGroup>
+</ink>"""
 
 
 def test_ink_from_dict_matches_shared_example():
@@ -81,6 +97,15 @@ def test_tokenizer_unknown_maps_to_unk():
     tok = LatexTokenizer().build_vocab(["x + 1"])
     ids = tok.encode(r"\zeta", add_special=False)
     assert ids == [tok.unk_id]
+
+
+def test_inkml_expression_label_ignores_symbol_truths(tmp_path):
+    """No CROHME, o label é a expressão inteira — não o truth de um símbolo do traceGroup."""
+    f = tmp_path / "s.inkml"
+    f.write_text(_CROHME_INKML, encoding="utf-8")
+    ink = parse_inkml(f)
+    assert ink.label == r"\frac { 1 } { 2 }"  # sem $, expressão inteira
+    assert len(ink.strokes) == 2  # <traceGroup> não vira stroke
 
 
 # TODO(Fase 1): test de shapes do collate_fn e de um forward do InkModel (requer torch).

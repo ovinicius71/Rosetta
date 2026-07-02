@@ -1,13 +1,16 @@
-# Fase 1 — PROVA RÁPIDA: overfitar um subconjunto minúsculo do CROHME.
+# Fase 1 — PROVA RÁPIDA: overfitar um subconjunto minúsculo do CROHME real.
 # Objetivo: loss → ~0 e o modelo reproduzir o LaTeX das amostras. Se não overfitar,
 # o seq2seq está quebrado — conserte antes de escalar.
 _base_: base.yaml
 
 data:
   dataset: crohme
-  root: data/crohme
+  root: data/crohme/train
   subset_size: 32             # só algumas dezenas de amostras
-  max_points: 512
+  max_points: 1024            # amostras reais têm ~435 pontos em média
+
+tokenizer:
+  vocab_path: artifacts/vocab_crohme.json   # vocab por dataset
 
 model:
   d_model: 128                # bem pequeno; overfit é sobre memorizar
@@ -18,6 +21,13 @@ train:
   epochs: 300
   batch_size: 8
   grad_accum: 1
-  lr: 5.0e-4
+  lr: 7.0e-4
+  warmup_steps: 40
+  scheduler: constant         # LR fixa após warmup → memoriza o subset
   label_smoothing: 0.0        # queremos memorizar
   bucket_by_length: false
+  num_workers: 0              # dataset minúsculo: workers só adicionam overhead
+
+checkpoint:
+  dir: checkpoints/overfit_crohme
+  save_every_steps: 100000    # não precisa salvar no meio do overfit
