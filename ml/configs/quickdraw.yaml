@@ -1,0 +1,45 @@
+# Fase 4 — Classificador de desenhos (QuickDraw, 21 categorias) sobre o MESMO encoder.
+# Lições da Fase 2 aplicadas desde o início: resample_step fixo (treino = inferência,
+# invariância a densidade por construção) + augmentation.
+# Treinar:  python -m hmer_ml.train_sketch --config ml/configs/quickdraw.yaml
+_base_: base.yaml
+
+data:
+  dataset: quickdraw
+  root: data/quickdraw
+  # ordem = ids das classes (mesma de scripts/download_quickdraw.py) — não reordenar
+  categories: [cat, dog, house, tree, sun, car, flower, fish, bird, star, clock,
+               bicycle, airplane, sailboat, cup, chair, apple, moon, umbrella,
+               butterfly, circle]
+  train_per_class: 5000
+  val_per_class: 800
+  max_points: 512
+  resample_step: 0.025        # passo fixo em coords normalizadas (RDP esparso ↔ caneta densa)
+  augment: true
+  augment_cfg:
+    jitter_sigma: 0.01
+    scale_range: [0.85, 1.15]
+    rotate_max_deg: 10.0
+    point_dropout: 0.05
+
+model:
+  head: sketch_cls
+  num_classes: 21
+  d_model: 256
+  encoder: { type: bigru, hidden: 256, layers: 2, dropout: 0.3 }
+
+train:
+  epochs: 8
+  batch_size: 64
+  grad_accum: 1
+  lr: 3.0e-4
+  warmup_steps: 500
+  scheduler: inv_sqrt
+  grad_clip: 1.0
+  amp: true
+  bucket_by_length: true
+  num_workers: 4
+
+checkpoint:
+  dir: checkpoints/quickdraw
+  save_every_steps: 2000

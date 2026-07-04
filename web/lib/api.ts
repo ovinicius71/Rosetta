@@ -32,3 +32,62 @@ export async function evaluate(latex: string): Promise<EvaluateResponse> {
   if (!res.ok) throw new Error(`evaluate falhou: ${res.status}`);
   return res.json();
 }
+
+// ── caderno: página inteira → contas resolvidas ─────────────────────────────
+// Espelha PageInk/PageProcessResponse de api/schemas.py.
+
+export interface PageStrokeDto {
+  x: number[];
+  y: number[];
+  color?: number;
+  width?: number;
+}
+
+export interface ExpressionResultDto {
+  latex: string;
+  result: string | null;
+  error: string | null;
+  strokes: PageStrokeDto[]; // tinta do resultado, pronta para desenhar
+}
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
+export async function processPage(
+  strokes: PageStrokeDto[]
+): Promise<{ expressions: ExpressionResultDto[] }> {
+  const res = await fetch("/api/page/process", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ strokes }),
+  });
+  if (!res.ok) throw new ApiError(res.status, `page/process falhou: ${res.status}`);
+  return res.json();
+}
+
+export interface SketchGuessDto {
+  label: string;
+  label_pt: string;
+  confidence: number;
+}
+
+export interface SketchResponseDto extends SketchGuessDto {
+  topk: SketchGuessDto[];
+  strokes: PageStrokeDto[]; // rótulo em tinta, pronto para desenhar
+}
+
+export async function recognizeSketch(strokes: PageStrokeDto[]): Promise<SketchResponseDto> {
+  const res = await fetch("/api/sketch/recognize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ strokes }),
+  });
+  if (!res.ok) throw new ApiError(res.status, `sketch/recognize falhou: ${res.status}`);
+  return res.json();
+}

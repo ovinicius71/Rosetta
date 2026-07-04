@@ -16,6 +16,8 @@
   --lapis-soft: #e6eafb;
   --pen: #2a3670;          /* cor do traço no canvas (tinta azul-preta) */
   --sienna: #b4552d;       /* erros / avisos — siena queimado */
+  --answer: #e8590c;       /* tinta de resposta (= RESULT_COLOR do backend) */
+  --margin-line: rgba(180, 85, 45, 0.28); /* linha de margem do caderno */
 
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-mono: var(--font-plex), "Courier New", monospace;
@@ -391,6 +393,401 @@ body::before {
 
 .reveal-3 {
   animation-delay: 0.23s;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   O caderno — folha longa de anotações com contas que se resolvem
+   ───────────────────────────────────────────────────────────── */
+
+.page-notebook {
+  max-width: 960px;
+}
+
+.notebook-area {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── toolbar flutuante ──────────────────────────────────────── */
+
+.notebook-toolbar {
+  position: sticky;
+  top: 12px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  box-shadow: var(--shadow-sheet);
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool-group-right {
+  margin-left: auto;
+}
+
+.page-nav {
+  gap: 2px;
+}
+
+.page-indicator {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  min-width: 34px;
+  text-align: center;
+}
+
+.toolbar-status {
+  flex: 1 1 60px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toolbar-status.error {
+  color: var(--sienna);
+}
+
+.tool-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--line);
+  margin: 0 4px;
+}
+
+.tool-btn {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 7px 11px;
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+  transition:
+    color 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out),
+    background 0.15s var(--ease-out);
+}
+
+.tool-btn:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.tool-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tool-btn.active {
+  color: var(--lapis);
+  border-color: var(--lapis);
+  background: var(--lapis-soft);
+}
+
+.tool-btn.danger {
+  color: var(--sienna);
+  border-color: var(--sienna);
+}
+
+.solve-btn {
+  color: var(--sheet);
+  background: var(--lapis);
+  border-color: var(--lapis);
+}
+
+.solve-btn:hover:not(:disabled) {
+  color: var(--sheet);
+  background: var(--lapis-press);
+  border-color: var(--lapis-press);
+}
+
+/* canetas (bolinhas de cor) e pontas */
+
+.swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--sheet);
+  outline: 1px solid var(--line);
+  background: var(--swatch);
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-out), outline-color 0.15s var(--ease-out);
+}
+
+.swatch:hover {
+  transform: scale(1.12);
+}
+
+.swatch.active {
+  outline: 2px solid var(--lapis);
+  outline-offset: 1px;
+}
+
+.nib {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.nib span {
+  display: block;
+  border-radius: 50%;
+  background: var(--ink-2);
+  transition: background 0.15s var(--ease-out);
+}
+
+.nib.active {
+  border-color: var(--lapis);
+  background: var(--lapis-soft);
+}
+
+.nib.active span {
+  background: var(--lapis);
+}
+
+/* auto-resolver */
+
+.auto-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s var(--ease-out);
+}
+
+.auto-chip input {
+  appearance: none;
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  border-radius: 50%;
+  background: var(--line);
+  transition: background 0.15s var(--ease-out);
+}
+
+.auto-chip.on {
+  color: var(--lapis);
+  border-color: var(--lapis);
+}
+
+.auto-chip.on input {
+  background: var(--lapis);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+/* ── a folha ────────────────────────────────────────────────── */
+
+.notebook-wrap {
+  position: relative;
+}
+
+.notebook {
+  display: block;
+  width: 100%;
+  background-color: var(--sheet);
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 63px,
+      var(--margin-line) 63px,
+      var(--margin-line) 64.5px,
+      transparent 64.5px
+    ),
+    radial-gradient(var(--dot) 1px, transparent 1.4px);
+  background-size:
+    100% 100%,
+    22px 22px;
+  background-position:
+    0 0,
+    11px 11px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  box-shadow: var(--shadow-sheet);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.notebook.erasing {
+  cursor: cell;
+}
+
+.notebook-hint {
+  position: absolute;
+  top: 96px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  opacity: 0.55;
+  transition: opacity 0.4s var(--ease-out);
+}
+
+.notebook-hint .hint-eq {
+  color: var(--answer);
+  font-weight: 500;
+  margin: 0 0.4em;
+}
+
+.notebook-hint.hidden {
+  opacity: 0;
+}
+
+.notebook-status {
+  margin-top: 10px;
+}
+
+/* ── painel de contas resolvidas ────────────────────────────── */
+
+.solved-panel {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  width: min(360px, calc(100vw - 40px));
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  box-shadow: var(--shadow-sheet);
+  animation: rise 0.4s var(--ease-out) both;
+}
+
+.solved-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.solved-title {
+  flex: 1;
+  text-align: left;
+}
+
+.solved-count {
+  background: var(--answer);
+  color: var(--sheet);
+  border-radius: 999px;
+  min-width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  padding: 0 6px;
+}
+
+.solved-caret {
+  color: var(--ink-2);
+}
+
+.solved-list {
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border-top: 1px solid var(--line);
+}
+
+.solved-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  animation: rise 0.35s var(--ease-out) both;
+}
+
+.solved-item:last-child {
+  border-bottom: none;
+}
+
+.solved-tex {
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.solved-tex .katex {
+  font-size: 1.02em;
+}
+
+.solved-eq {
+  font-family: var(--font-mono);
+  color: var(--ink-2);
+}
+
+.solved-result {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  color: var(--answer);
+  white-space: nowrap;
+  max-width: 40%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+@media (max-width: 640px) {
+  .notebook-toolbar {
+    gap: 8px;
+    top: 8px;
+  }
+
+  .tool-group-right {
+    margin-left: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

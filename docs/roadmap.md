@@ -49,11 +49,58 @@ ficam fora do git.
 - **Saída atingida:** desenhar no browser e ver LaTeX + resultado.
   Rodar: API `uvicorn hmer_api.main:app` (com HMER_CKPT) + `npm run dev` em web/.
 
-## Fase 4 — Extensão para reconhecimento de desenhos
-- [ ] Nova **cabeça de classificação** sobre o **mesmo encoder de tinta**.
-- [ ] Dataset **QuickDraw** (também tinta online).
-- [ ] Config seleciona a cabeça (`head: latex` | `head: sketch_cls`).
-- **Saída:** o mesmo encoder serve matemática e "o que está sendo desenhado".
+## Fase 3.5 — Xournal++ como interface principal  ← *concluída (2026-07-03)*
+- [x] **Segmentação de contas** em página livre (`ml/segment.py`): detecta "=" por
+      geometria (par de barras), agrupa a expressão da linha de escrita (frações e
+      expoentes entram; texto de outras linhas/colunas não). 11 testes.
+- [x] **Resultado como tinta** (`api/inkfont.py`): fonte vetorial Hershey Simplex
+      (domínio público, gerada por `scripts/gen_inkfont_glyphs.py`) — o valor é
+      *desenhado* após o "=", estilo iPad Math Notes.
+- [x] `POST /page/process`: traços da página → contas pendentes → Recognizer → SymPy →
+      polilinhas prontas. Cor fixa (laranja) marca resultado = idempotência (rodar de
+      novo não duplica). Erros por conta são isolados. 7 testes (+4 inkfont).
+- [x] **Plugin Lua** (`xournalpp-plugin/rosetta`): Ctrl+M → `getStrokes("layer")` →
+      curl → `addStrokes` (undo agrupado). Instalação: `scripts/install_plugin.ps1`.
+- [x] Verificado com tinta real do CROHME (`scripts/e2e_page_process.py`): segmentação
+      acha o "=" em escrita real; pipeline completo responde.
+- **Limitação conhecida:** a API Lua do Xournal++ (1.3.4) não tem eventos de traço —
+  o gatilho é um atalho, não o ato de escrever. Gatilho em tempo real = patch C++
+  upstream (futuro).
+- **Mudança de rota (2026-07-03):** o plano Xournal++ foi **pausado** — a web virou o
+  caderno (Fase 3.6). O plugin Lua continua no repo e funcional, mas não é o caminho.
+
+## Fase 3.6 — O caderno web (interface principal)  ← *concluída (2026-07-03)*
+- [x] `web/` remodelado: folha longa de anotações livres (cresce ao escrever), 3 canetas,
+      2 pontas, borracha por traço, desfazer (Ctrl+Z), persistência em localStorage.
+- [x] **Gatilho em tempo real** (o que o Xournal++ não permitia): pausou a caneta ~1,3s →
+      a página vai a `/page/process` → resposta se desenha em tinta laranja animada.
+      Toggle `auto` + botão `resolver =` na toolbar; status visível na própria toolbar.
+- [x] Painel "contas resolvidas" (KaTeX) + design system Paper & Ink mantido (linha de
+      margem, grade pontilhada). Componentes antigos (InkCanvas/LatexView) removidos.
+- [x] API aquece o modelo no startup; proxy do Next com timeout de 180s (1ª inferência
+      em CPU não derruba mais a chamada).
+- [x] Verificado ao vivo no Chrome: "2+3=" → **5** laranja; "1+1=" resolvida pelo
+      gatilho automático sem clique; reprocessar não duplica; reload preserva a página.
+- **Saída atingida:** anotar livremente no browser e ver as contas se resolverem no
+  meio das anotações.
+
+## Fase 4 — Extensão para reconhecimento de desenhos  ← *v1 concluída (2026-07-03)*
+- [x] **Cabeça de classificação** (`SketchClsHead`, mean-pool + linear) sobre o **mesmo
+      encoder de tinta** — o branch já existia em `InkModel.forward` (ADR 0006 provado).
+- [x] Dataset **QuickDraw** simplified: `scripts/download_quickdraw.py` (byte-range,
+      21 categorias × ~14-25k desenhos, 169 MB) + `data/quickdraw.py` (split
+      determinístico, `resample_step: 0.025` fixo — treino = inferência, lição da Fase 2;
+      "heart" não existe no QuickDraw, virou "butterfly").
+- [x] Config seleciona a cabeça (`configs/quickdraw.yaml`, `head: sketch_cls`) +
+      `train_sketch.py` (CE, val acc por época, best.ckpt).
+- [x] `infer_sketch.SketchRecognizer` + `POST /sketch/recognize` (SKETCH_CKPT, default
+      `checkpoints/quickdraw/best.ckpt`; rótulo pt-BR desenhado em tinta sob o desenho).
+- [x] Caderno: botão **`desenho?`** classifica o desenho recente (cluster espacial dos
+      traços finais) + **múltiplas páginas** (◀ n/N ▶ + página, persistência v2).
+- [x] Verificado no Chrome: círculo desenhado → rótulo "circulo" em tinta laranja +
+      "círculo · 67%" (checkpoint parcial; treino completo em andamento).
+- **Saída atingida:** o mesmo encoder serve matemática e "o que está sendo desenhado".
+- Próximo: mais categorias; triagem automática math/texto/desenho na mesma passada.
 
 ## Explicitamente adiado (não implementar agora)
 - Fusão multimodal (tinta + imagem renderizada).

@@ -14,12 +14,16 @@ OVERFIT_CKPT = REPO / "checkpoints" / "overfit_crohme" / "last.ckpt"
 def client(monkeypatch):
     """Client com o Recognizer stub (sem checkpoint) — contrato testável sem modelo."""
     monkeypatch.delenv("HMER_CKPT", raising=False)
+    monkeypatch.setenv("SKETCH_CKPT", "")  # nunca carregar o classificador nos testes
     from hmer_api.main import app
     from hmer_api.recognize import get_recognizer
+    from hmer_api.sketch import get_sketch_recognizer
 
     get_recognizer.cache_clear()
+    get_sketch_recognizer.cache_clear()
     yield TestClient(app)
     get_recognizer.cache_clear()
+    get_sketch_recognizer.cache_clear()
 
 
 def test_health(client):

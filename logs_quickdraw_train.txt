@@ -1,0 +1,13 @@
+[sketch] device=cuda amp=True
+[sketch] 105000 treino / 16800 val / 21 classes
+[sketch] indexando comprimentos p/ bucketing...
+[sketch] parâmetros: 2.11M
+[sketch] epoch 0  loss 1.9931  train_acc 0.375  val_acc 0.666  lr 1.66e-04
+[sketch] epoch 1  loss 0.8281  train_acc 0.750  val_acc 0.823  lr 1.17e-04
+[sketch] epoch 2  loss 0.5657  train_acc 0.829  val_acc 0.860  lr 9.56e-05
+[sketch] epoch 3  loss 0.4618  train_acc 0.860  val_acc 0.878  lr 8.28e-05
+[sketch] epoch 4  loss 0.3962  train_acc 0.880  val_acc 0.887  lr 7.41e-05
+[sketch] epoch 5  loss 0.3552  train_acc 0.892  val_acc 0.904  lr 6.76e-05
+[sketch] epoch 6  loss 0.3222  train_acc 0.902  val_acc 0.910  lr 6.26e-05
+[sketch] epoch 7  loss 0.2956  train_acc 0.910  val_acc 0.920  lr 5.85e-05
+[sketch] concluído. melhor val_acc=0.920 — checkpoint: checkpoints\quickdraw\best.ckpt

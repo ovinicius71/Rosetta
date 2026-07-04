@@ -1,66 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import InkCanvas from "@/components/InkCanvas";
-import LatexView from "@/components/LatexView";
-import { recognize } from "@/lib/api";
-import type { Ink } from "@/lib/ink";
+import NotebookCanvas from "@/components/NotebookCanvas";
+import SolvedPanel from "@/components/SolvedPanel";
+import type { SolvedConta } from "@/lib/notebook";
 
-type Status = "idle" | "busy" | "error";
-
+/**
+ * Rosetta — o caderno.
+ *
+ * Uma folha só, longa, para anotar livremente. Contas terminadas em "=" são
+ * detectadas no meio das anotações e respondidas em tinta laranja, que se
+ * desenha sozinha (POST /page/process). O canvas de expressão única virou isto.
+ */
 export default function Home() {
-  const [latex, setLatex] = useState<string>("");
-  const [status, setStatus] = useState<Status>("idle");
-  const [errorMsg, setErrorMsg] = useState<string>("");
-
-  async function handleRecognize(ink: Ink) {
-    setStatus("busy");
-    setErrorMsg("");
-    try {
-      const { latex } = await recognize(ink);
-      setLatex(latex);
-      setStatus("idle");
-    } catch (e) {
-      const msg = (e as Error).message;
-      setErrorMsg(
-        msg.includes("501")
-          ? "modelo ainda não carregado — defina HMER_CKPT na API"
-          : `falha ao reconhecer (${msg})`
-      );
-      setStatus("error");
-    }
-  }
+  const [solved, setSolved] = useState<SolvedConta[]>([]);
 
   return (
-    <main className="page">
+    <main className="page page-notebook">
       <header className="masthead reveal reveal-1">
         <h1 className="wordmark">
           Rosetta<span className="dot">.</span>
         </h1>
         <span className="masthead-meta">
-          tinta <span className="arrow">→</span> latex
+          caderno · escreva a conta, termine com <span className="arrow">=</span>
         </span>
       </header>
 
-      <div className="reveal reveal-2">
-        <InkCanvas onRecognize={handleRecognize} busy={status === "busy"} />
-        <div className={`status ${status === "error" ? "error" : ""}`} role="status">
-          {status === "busy" && (
-            <>
-              <span className="status-dot" />
-              lendo a tinta…
-            </>
-          )}
-          {status === "error" && errorMsg}
-        </div>
+      <div className="reveal reveal-2 notebook-area">
+        <NotebookCanvas onSolvedChange={setSolved} />
       </div>
 
-      <div className="reveal reveal-3">
-        <LatexView latex={latex} />
-      </div>
+      <SolvedPanel solved={solved} />
 
       <footer className="colophon">
-        <span>tinta online → bigru → transformer → latex</span>
+        <span>tinta online → bigru → transformer → latex → sympy</span>
         <span>projeto rosetta</span>
       </footer>
     </main>
