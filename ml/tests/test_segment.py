@@ -129,6 +129,81 @@ def test_result_color_never_joins_expression():
     assert 0 not in exprs[0].stroke_indices
 
 
+def _equacao_com_rhs() -> list[Stroke]:
+    """'<algo> <algo> = <algo>' na linha y≈50 (equação com lado direito, ex. x+y=4)."""
+    return [
+        zigzag(20, 50),  # "x"
+        zigzag(45, 50),  # "y"
+        *equals_at(60, 47),  # "="
+        zigzag(95, 50),  # "4"
+    ]
+
+
+def test_equation_groups_both_sides():
+    strokes = _equacao_com_rhs()
+    exprs = find_pending(strokes)
+    assert len(exprs) == 1
+    e = exprs[0]
+    assert e.stroke_indices == [0, 1, 2, 3, 4]
+    assert e.lhs_indices == [0, 1]
+    assert e.rhs_indices == [4]
+
+
+def test_conta_has_empty_rhs():
+    strokes = _conta_2_mais_3()
+    e = find_pending(strokes)[0]
+    assert e.rhs_indices == []
+    assert e.lhs_indices == [0, 1, 2, 3]
+
+
+def test_superscript_hovering_over_equals_is_adopted():
+    """Expoente que invade o espaço do '=' por cima (ex.: o '²' de "y²" escrito alto)
+    entra no LHS — as varreduras laterais sozinhas o perderiam (regressão da tinta
+    real do usuário em 2026-07-04)."""
+    strokes = [
+        zigzag(20, 50),  # "x"
+        zigzag(45, 50),  # "y"
+        zigzag(64, 34, w=8.0, h=10.0),  # "²" alto, pairando sobre o início do '='
+        *equals_at(60, 47),  # "="  (x 60..72)
+        zigzag(95, 50),  # "4"
+    ]
+    e = find_pending(strokes)[0]
+    assert 2 in e.lhs_indices
+    assert e.lhs_indices == [0, 1, 2]
+    assert e.rhs_indices == [5]
+
+
+def test_adoption_ignores_text_line_above():
+    """Outra linha de escrita bem acima NÃO é adotada (banda vertical limita)."""
+    strokes = [
+        zigzag(20, 10),  # texto de outra linha, acima da conta
+        zigzag(20, 50),
+        zigzag(45, 50),
+        *equals_at(60, 47),
+        zigzag(95, 50),
+    ]
+    e = find_pending(strokes)[0]
+    assert 0 not in e.stroke_indices
+
+
+def test_result_below_marks_equation_as_solved():
+    strokes = _equacao_com_rhs()
+    colors: list[int | None] = [None] * len(strokes)
+    # gráfico desenhado logo abaixo da equação (tinta de resultado)
+    strokes.append(zigzag(60, 95, w=60, h=40))
+    colors.append(RESULT_COLOR)
+    assert find_pending(strokes, colors=colors) == []
+
+
+def test_result_below_other_column_does_not_mark():
+    strokes = _equacao_com_rhs()
+    colors: list[int | None] = [None] * len(strokes)
+    # tinta de resultado abaixo mas SEM sobreposição horizontal (de outra expressão)
+    strokes.append(zigzag(300, 95))
+    colors.append(RESULT_COLOR)
+    assert len(find_pending(strokes, colors=colors)) == 1
+
+
 def test_two_expressions_on_different_lines():
     strokes = _conta_2_mais_3()
     n_first = len(strokes)

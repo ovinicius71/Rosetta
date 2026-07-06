@@ -68,12 +68,14 @@ class PageInk(BaseModel):
 
 
 class ExpressionResult(BaseModel):
-    """Uma conta encontrada: LaTeX reconhecido, avaliação e a tinta do resultado."""
+    """Uma conta/equação encontrada: LaTeX, avaliação/classificação e a tinta do resultado."""
 
     latex: str
-    result: str | None = None
+    result: str | None = None  # valor calculado (contas) ou solução (equações 1-var)
+    kind: str | None = None  # tipo da curva/superfície (equações: "circunferencia"…)
+    description: str | None = None  # descrição pt-BR (equações classificadas)
     error: str | None = None
-    strokes: list[PageStroke]  # tinta a desenhar após o '=' (vazia se não avaliável)
+    strokes: list[PageStroke]  # tinta a desenhar (vazia se não avaliável)
 
 
 class PageProcessResponse(BaseModel):

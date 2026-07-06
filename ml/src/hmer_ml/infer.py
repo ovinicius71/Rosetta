@@ -70,14 +70,37 @@ class Recognizer:
             )
         return self.tok.decode(ids)
 
+    @torch.no_grad()
+    def recognize_topk(
+        self, ink: Ink | dict, beam_size: int = 4, max_len: int = 256
+    ) -> list[str]:
+        """Todas as hipóteses finais do beam, da melhor para a pior (sem duplicatas)."""
+        if isinstance(ink, dict):
+            ink = Ink.from_dict(ink)
+        batch = self._ink_to_batch(ink)
+        memory, mmask = self.model.encode(batch)
+        all_ids = beam_search(
+            self.model.head, memory, mmask,
+            bos_id=self.tok.bos_id, eos_id=self.tok.eos_id,
+            beam_size=max(beam_size, 2), max_len=max_len, return_all=True,
+        )
+        out: list[str] = []
+        for ids in all_ids:
+            latex = self.tok.decode(ids)
+            if latex not in out:
+                out.append(latex)
+        return out
+
 
 @torch.no_grad()
 def beam_search(head, memory, memory_mask, *, bos_id: int, eos_id: int,
-                beam_size: int, max_len: int, length_alpha: float = 0.7) -> list[int]:
+                beam_size: int, max_len: int, length_alpha: float = 0.7,
+                return_all: bool = False) -> list[int] | list[list[int]]:
     """Beam search autorregressivo para 1 exemplo (memory [1, T, D]).
 
     Score = soma de log-probs, normalizada por len**length_alpha na seleção final
-    (GNMT-style), para não privilegiar hipóteses curtas. Retorna ids sem <bos>/<eos>.
+    (GNMT-style), para não privilegiar hipóteses curtas. Retorna ids sem <bos>/<eos>;
+    com return_all=True, todas as hipóteses ordenadas da melhor para a pior.
     """
     device = memory.device
     # replica a memory para as k hipóteses (mesma tinta para todos os beams)
@@ -117,11 +140,12 @@ def beam_search(head, memory, memory_mask, *, bos_id: int, eos_id: int,
             out.append(t)
         return out
 
-    best, best_score = [], float("-inf")
+    scored = []
     for i in range(beam_size):
         ids = seq_ids(ys[i].tolist())
         norm = max(len(ids), 1) ** length_alpha
-        s = scores[i].item() / norm
-        if s > best_score:
-            best, best_score = ids, s
-    return best
+        scored.append((scores[i].item() / norm, ids))
+    scored.sort(key=lambda t: -t[0])
+    if return_all:
+        return [ids for _, ids in scored]
+    return scored[0][1]

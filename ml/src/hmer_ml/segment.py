@@ -14,7 +14,7 @@ Heurísticas calibráveis nas constantes abaixo; unidades são relativas ao pró
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .data.ink import Stroke
 
@@ -39,6 +39,7 @@ EQ_X_TOLERANCE = 0.25  # quanto um símbolo pode invadir o "=" pela direita / la
 # Resultado desenhado pela integração (cor fixa: é assim que marcamos "já processado").
 RESULT_COLOR = 0xE8590C  # laranja
 RESULT_SEARCH_SPAN = 6.0  # até onde procurar um resultado à direita do "=" / largura do "="
+RESULT_BELOW_SPAN = 5.0  # até onde procurar um resultado ABAIXO da expressão (gráficos)
 
 BBox = tuple[float, float, float, float]  # (min_x, min_y, max_x, max_y)
 
@@ -57,11 +58,17 @@ class EqualsSign:
 
 @dataclass
 class Expression:
-    """Uma conta: os traços da expressão (incluindo o próprio '=')."""
+    """Uma conta/equação: os traços da expressão (incluindo o próprio '=').
+
+    `lhs_indices`/`rhs_indices` separam os lados do '=' — RHS vazio é uma conta
+    ("2+3="); RHS não-vazio é uma equação ("x²+y²=4").
+    """
 
     stroke_indices: list[int]
     equals: EqualsSign
     bbox: BBox
+    lhs_indices: list[int] = field(default_factory=list)
+    rhs_indices: list[int] = field(default_factory=list)
 
 
 def _stroke_bbox(s: Stroke) -> BBox:
@@ -171,50 +178,94 @@ def group_expression(
     equals: EqualsSign,
     candidates: list[int] | None = None,
 ) -> Expression:
-    """Agrupa os traços da conta que termina no `equals` dado.
+    """Agrupa os traços da conta/equação em torno do `equals` dado.
 
-    Varre da direita para a esquerda encadeando símbolos: um traço entra se estiver na banda
-    vertical da linha de escrita (que cresce com o grupo — frações/expoentes cabem) e a menos
-    de MAX_SYMBOL_GAP larguras-de-'=' do grupo. Traços à direita do '=' nunca entram.
+    Duas varreduras encadeando símbolos (esquerda→LHS e direita→RHS): um traço entra se
+    estiver na banda vertical da linha de escrita (que cresce com o grupo — frações e
+    expoentes cabem) e a menos de MAX_SYMBOL_GAP larguras-de-'=' do grupo.
     """
     idxs = list(range(len(strokes))) if candidates is None else list(candidates)
     eq_w = max(equals.width, 1e-9)
-    group = set(equals.stroke_indices)
-    bbox = equals.bbox
-
-    pool = [
-        (i, _stroke_bbox(strokes[i]))
-        for i in idxs
-        if i not in group and _stroke_bbox(strokes[i])[2] <= equals.bbox[0] + EQ_X_TOLERANCE * eq_w
-    ]
-    pool.sort(key=lambda ib: -ib[1][2])  # borda direita decrescente
-
-    for i, b in pool:
-        gap = bbox[0] - b[2]
-        if gap > MAX_SYMBOL_GAP * eq_w:
-            break  # buraco grande: o que vier depois é outra coluna/palavra
-        slack = BAND_SLACK * eq_w
-        if b[3] < bbox[1] - slack or b[1] > bbox[3] + slack:
-            continue  # fora da linha de escrita (outra linha da página)
-        group.add(i)
-        bbox = _merge(bbox, b)
-
-    return Expression(stroke_indices=sorted(group), equals=equals, bbox=bbox)
-
-
-def _has_result(equals: EqualsSign, result_boxes: list[BBox]) -> bool:
-    """True se já existe tinta de resultado logo à direita do '=' (na mesma linha)."""
-    ex0, ey0, ex1, ey1 = equals.bbox
-    eq_w = max(equals.width, 1e-9)
+    eq_set = set(equals.stroke_indices)
+    boxes = {i: _stroke_bbox(strokes[i]) for i in idxs if i not in eq_set}
     slack = BAND_SLACK * eq_w
+
+    def sweep(leftward: bool) -> tuple[set[int], BBox]:
+        if leftward:
+            pool = [(i, b) for i, b in boxes.items() if b[2] <= equals.bbox[0] + EQ_X_TOLERANCE * eq_w]
+            pool.sort(key=lambda ib: -ib[1][2])  # borda direita decrescente
+        else:
+            pool = [(i, b) for i, b in boxes.items() if b[0] >= equals.bbox[2] - EQ_X_TOLERANCE * eq_w]
+            pool.sort(key=lambda ib: ib[1][0])  # borda esquerda crescente
+
+        side: set[int] = set()
+        bbox = equals.bbox
+        for i, b in pool:
+            gap = (bbox[0] - b[2]) if leftward else (b[0] - bbox[2])
+            if gap > MAX_SYMBOL_GAP * eq_w:
+                break  # buraco grande: o que vier depois é outra coluna/palavra
+            if b[3] < bbox[1] - slack or b[1] > bbox[3] + slack:
+                continue  # fora da linha de escrita (outra linha da página)
+            side.add(i)
+            bbox = _merge(bbox, b)
+        return side, bbox
+
+    lhs, lhs_bbox = sweep(leftward=True)
+    rhs, rhs_bbox = sweep(leftward=False)
+    bbox = _merge(lhs_bbox, rhs_bbox)
+
+    # Adoção de sobrescritos órfãos: as varreduras exigem o traço INTEIRO de um lado
+    # do '=', então um expoente que paira sobre o '=' (ex.: o '²' de "y²" invadindo o
+    # início do "=") não entra em nenhuma. Adota traços que sobrepõem a expressão
+    # horizontalmente e estão na banda vertical dela, no lado do seu centro.
+    eq_cx = (equals.bbox[0] + equals.bbox[2]) / 2.0
+    grouped = eq_set | lhs | rhs
+    changed = True
+    while changed:
+        changed = False
+        for i, b in boxes.items():
+            if i in grouped:
+                continue
+            overlaps_h = min(bbox[2], b[2]) - max(bbox[0], b[0]) > 0
+            in_band = not (b[3] < bbox[1] - slack or b[1] > bbox[3] + slack)
+            if not (overlaps_h and in_band):
+                continue
+            (lhs if (b[0] + b[2]) / 2.0 < eq_cx else rhs).add(i)
+            grouped.add(i)
+            bbox = _merge(bbox, b)
+            changed = True
+
+    return Expression(
+        stroke_indices=sorted(eq_set | lhs | rhs),
+        equals=equals,
+        bbox=bbox,
+        lhs_indices=sorted(lhs),
+        rhs_indices=sorted(rhs),
+    )
+
+
+def _has_result(expr: Expression, result_boxes: list[BBox]) -> bool:
+    """True se já existe tinta de resultado desta expressão.
+
+    Dois lugares possíveis: logo à **direita** do '=' na mesma linha (contas: "2+3= 5")
+    ou logo **abaixo** do bbox da expressão (equações: gráfico/solução desenhados sob
+    "x²+y²=4").
+    """
+    ex0, ey0, ex1, ey1 = expr.equals.bbox
+    eq_w = max(expr.equals.width, 1e-9)
+    slack = BAND_SLACK * eq_w
+    bx0, by0, bx1, by1 = expr.bbox
     for b in result_boxes:
-        if b[0] < ex1 - EQ_X_TOLERANCE * eq_w:
-            continue  # não está à direita
-        if b[0] > ex1 + RESULT_SEARCH_SPAN * eq_w:
-            continue  # longe demais para ser deste '='
-        if b[3] < ey0 - slack or b[1] > ey1 + slack:
-            continue  # outra linha
-        return True
+        # caso conta: à direita do '=', na banda da linha de escrita
+        right_of_eq = ex1 - EQ_X_TOLERANCE * eq_w <= b[0] <= ex1 + RESULT_SEARCH_SPAN * eq_w
+        same_line = not (b[3] < ey0 - slack or b[1] > ey1 + slack)
+        if right_of_eq and same_line:
+            return True
+        # caso equação: abaixo da expressão, com sobreposição horizontal
+        below = by1 - slack <= b[1] <= by1 + RESULT_BELOW_SPAN * eq_w
+        overlaps_h = min(bx1, b[2]) - max(bx0, b[0]) > 0
+        if below and overlaps_h:
+            return True
     return False
 
 
@@ -238,10 +289,12 @@ def find_pending(
     out: list[Expression] = []
     claimed: set[int] = set()
     for eq in detect_equals(strokes, candidates=user_idx):
-        if _has_result(eq, result_boxes):
-            continue
+        # agrupa primeiro (o teste de "já resolvida" precisa do bbox completo p/ olhar
+        # abaixo da expressão); expressões resolvidas ainda reivindicam seus traços.
         free = [i for i in user_idx if i not in claimed or i in eq.stroke_indices]
         expr = group_expression(strokes, eq, candidates=free)
         claimed.update(expr.stroke_indices)
+        if _has_result(expr, result_boxes):
+            continue
         out.append(expr)
     return out

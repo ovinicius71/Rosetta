@@ -1,8 +1,8 @@
-# Sobe a API do Rosetta (FastAPI/uvicorn) com o modelo real, a partir da raiz do repo.
+﻿# Sobe a API do Rosetta (FastAPI/uvicorn) com o modelo real, a partir da raiz do repo.
 # Uso:  .\scripts\serve_api.ps1  [-Ckpt caminho.ckpt] [-Device cpu|cuda] [-Port 8000]
 
 param(
-    [string]$Ckpt = "checkpoints\crohme\last.ckpt",
+    [string]$Ckpt = "checkpoints\crohme_rs\last.ckpt",
     [string]$Device = "cpu",
     [int]$Port = 8000
 )
@@ -20,3 +20,4 @@ $env:HMER_DEVICE = $Device
 $env:PYTHONPATH = "api\src;ml\src"
 
 & "$repo\venv\Scripts\python.exe" -m uvicorn hmer_api.main:app --host 127.0.0.1 --port $Port
+

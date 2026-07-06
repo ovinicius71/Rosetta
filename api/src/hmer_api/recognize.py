@@ -57,6 +57,25 @@ class _ModelRecognizer:
         except Exception as e:  # noqa: BLE001 - erro de inferência não deve derrubar a API
             raise HTTPException(status_code=500, detail=f"falha na inferência: {e}") from e
 
+    # Equações usam um beam mais largo que o das contas: a leitura classificável
+    # (ex.: "x²+p²=8", circunferência) costuma aparecer fundo na lista quando o
+    # escritor foge do estilo CROHME. Equações são raras na página; o custo é ok.
+    EQUATION_BEAM_SIZE = 16
+
+    def recognize_topk(self, ink: dict) -> list[str]:
+        """Hipóteses do beam, da melhor para a pior (para o caminho de equações)."""
+        strokes = ink.get("strokes") or []
+        if not any(s.get("points") for s in strokes):
+            raise HTTPException(status_code=422, detail="tinta vazia (nenhum ponto)")
+        try:
+            return self._rec.recognize_topk(
+                ink,
+                beam_size=max(self.beam_size, self.EQUATION_BEAM_SIZE),
+                max_len=self.max_len,
+            )
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=500, detail=f"falha na inferência: {e}") from e
+
 
 class _StubRecognizer:
     def recognize(self, ink: dict, **kw) -> str:

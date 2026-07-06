@@ -49,7 +49,7 @@ export default function SolvedPanel({ solved }: { solved: SolvedConta[] }) {
           {solved.map((c, i) => (
             <div className="solved-item" key={`${c.at}-${i}`}>
               <Tex latex={c.latex} />
-              <span className="solved-eq">=</span>
+              <span className="solved-eq">{c.eq ? "→" : "="}</span>
               <span className="solved-result">{c.result}</span>
             </div>
           ))}

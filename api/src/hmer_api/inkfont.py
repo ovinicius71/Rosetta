@@ -7,7 +7,17 @@ Usado por POST /page/process: o resultado da conta é inserido no Xournal++ como
 
 from __future__ import annotations
 
+import unicodedata
+
 from ._hershey import GLYPHS
+
+
+def strip_accents(text: str) -> str:
+    """A fonte Hershey só tem ASCII: 'círculo' → 'circulo', '·' → '-'."""
+    text = text.replace("·", "-")
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn"
+    )
 
 # Extensão vertical dos dígitos na fonte (y de -12 a 9, y cresce para baixo).
 _CAP_TOP = -12.0

@@ -7,7 +7,11 @@ _base_: base.yaml
 data:
   dataset: crohme
   root: data/crohme/train
-  max_points: 1024
+  max_points: 1600  # pós-resample 0.004, p97≈1585 (medido) — 1024 truncaria 25% das amostras
+  # Passo fixo em coords normalizadas (mediana do CROHME). Treino = inferência ⇒
+  # invariância à densidade da caneta por construção (correção do overfit diagnosticado
+  # em 2026-07-03; mesma receita que deu 92% sem gap no classificador de desenhos).
+  resample_step: 0.004
   augment: true
   augment_cfg:
     jitter_sigma: 0.01
@@ -41,5 +45,5 @@ infer:
   max_len: 256
 
 checkpoint:
-  dir: checkpoints/crohme
+  dir: checkpoints/crohme_rs   # _rs = retreino com resample; preserva o run antigo
   save_every_steps: 1000

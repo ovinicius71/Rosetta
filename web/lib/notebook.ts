@@ -10,11 +10,12 @@ export interface NoteStroke {
   result?: boolean; // tinta desenhada pelo sistema (resposta de uma conta)
 }
 
-/** Conta resolvida (para o painel lateral). */
+/** Conta/equação resolvida (para o painel lateral). */
 export interface SolvedConta {
   latex: string;
-  result: string;
+  result: string; // valor calculado ou descrição da curva ("circunferencia · raio 2…")
   at: number; // epoch ms
+  eq?: boolean; // true = equação classificada (painel mostra "→" em vez de "=")
 }
 
 // Cor da tinta de resultado — TEM de casar com hmer_ml.segment.RESULT_COLOR:

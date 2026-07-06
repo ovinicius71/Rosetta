@@ -8,7 +8,6 @@ logo abaixo do desenho, na cor de resultado — mesma linguagem visual das conta
 from __future__ import annotations
 
 import os
-import unicodedata
 from functools import lru_cache
 
 from fastapi import HTTPException
@@ -16,7 +15,7 @@ from fastapi import HTTPException
 from hmer_ml.data.ink import Ink, Point, Stroke
 from hmer_ml.segment import RESULT_COLOR
 
-from .inkfont import text_to_strokes, text_width
+from .inkfont import strip_accents, text_to_strokes, text_width
 from .schemas import PageInk, PageStroke, SketchGuess, SketchRecognizeResponse
 
 DEFAULT_CKPT = "checkpoints/quickdraw/best.ckpt"
@@ -57,13 +56,6 @@ def get_sketch_recognizer():
 
     print(f"[api] carregando classificador de desenhos: ckpt={ckpt} device={device}")
     return SketchRecognizer(ckpt, config_path=config, device=device)
-
-
-def _strip_accents(text: str) -> str:
-    """A fonte Hershey só tem ASCII: 'círculo' → 'circulo'."""
-    return "".join(
-        c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn"
-    )
 
 
 def recognize_sketch(page: PageInk) -> SketchRecognizeResponse:
@@ -107,7 +99,7 @@ def _label_strokes(label_pt: str, page: PageInk) -> list[PageStroke]:
     ys = [y for s in page.strokes for y in s.y]
     x0, x1, y1 = min(xs), max(xs), max(ys)
     h = max(LABEL_MIN_H, min((y1 - min(ys)) * LABEL_HEIGHT_FRAC, LABEL_MAX_H))
-    text = _strip_accents(label_pt)
+    text = strip_accents(label_pt)
     x = (x0 + x1) / 2.0 - text_width(text, h) / 2.0
     y_mid = y1 + LABEL_GAP_FRAC * h + h / 2.0
 

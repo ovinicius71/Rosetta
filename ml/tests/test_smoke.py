@@ -13,6 +13,7 @@ from hmer_ml.data.ink import (
     Stroke,
     ink_to_features,
     normalize,
+    resample,
 )
 from hmer_ml.data.inkml import parse_inkml
 from hmer_ml.tokenizer import LatexTokenizer
@@ -78,6 +79,45 @@ def test_normalize_centers_and_scales():
     ys = [p.y for s in norm.strokes for p in s.points]
     assert min(xs) == -1.0 and max(xs) == 1.0  # x é o maior lado (20)
     assert abs((min(ys) + max(ys)) / 2) < 1e-9  # centrado
+
+
+def test_resample_uniform_spacing():
+    """Passo ~constante ao longo do arco, atravessando segmentos de tamanhos variados."""
+    ink = Ink(strokes=[Stroke([Point(0, 0), Point(0.003, 0), Point(1, 0)])])
+    pts = resample(ink, 0.25).strokes[0].points
+    xs = [p.x for p in pts]
+    assert xs == [0.0, 0.25, 0.5, 0.75, 1.0]
+
+
+def test_resample_is_density_invariant():
+    """Interpolar pontos colineares no meio (caneta mais densa) NÃO muda a saída.
+
+    Regressão do bug em que `carry` não acumulava entre segmentos curtos: tinta mais
+    densa que o passo emitia MENOS pontos — o oposto do contrato do resample.
+    """
+    sparse = Ink(strokes=[Stroke([Point(0, 0), Point(1, 0), Point(1, 1)])])
+    dense = Ink(
+        strokes=[
+            Stroke(
+                [Point(i / 100, 0) for i in range(101)]
+                + [Point(1, i / 100) for i in range(1, 101)]
+            )
+        ]
+    )
+    r_sparse = resample(sparse, 0.04).strokes[0].points
+    r_dense = resample(dense, 0.04).strokes[0].points
+    assert len(r_sparse) == len(r_dense)
+    assert all(
+        abs(a.x - b.x) < 1e-9 and abs(a.y - b.y) < 1e-9
+        for a, b in zip(r_sparse, r_dense)
+    )
+    # e o passo é de fato ~constante
+    import math
+
+    gaps = [
+        math.hypot(b.x - a.x, b.y - a.y) for a, b in zip(r_dense, r_dense[1:])
+    ]
+    assert all(abs(g - 0.04) < 1e-6 for g in gaps[:-1])  # último vai até o ponto final
 
 
 def test_tokenizer_roundtrip():

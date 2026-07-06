@@ -32,9 +32,21 @@ ficam fora do git.
 - [x] Avaliação por split: `evaluate --root data/crohme/valid [--limit N] [--verbose]`.
 - [x] Vocab por dataset (`artifacts/vocab_<dataset>.json`) — troca de dataset nunca
       reusa vocabulário errado.
-- [~] **Treino no CROHME completo** (`configs/crohme.yaml`: 8.901 amostras, 60 épocas,
-      batch efetivo 32, AMP, bucketing) — rodando na RTX 5050.
-- [ ] Avaliar no valid (986) e test (1.199) com CER/exact match; comparar com literatura.
+- [x] **Treino no CROHME completo** (`configs/crohme.yaml`: 8.901 amostras, 60 épocas,
+      batch efetivo 32, AMP, bucketing) — 1ª rodada overfitou (77% train vs 5% valid,
+      CER 1.41): as features dependiam da densidade da caneta.
+- [x] **Retreino com resample fixo** (`checkpoints/crohme_rs`, `resample_step: 0.004`,
+      treino = inferência): no valid (986, beam 4) **CER 1.41 → 0.81**; exact 5.2%.
+      Já é o checkpoint servido pela API (default do `serve_api.ps1`).
+- [x] **Bug do resample corrigido** (2026-07-04): `carry` não acumulava entre segmentos
+      curtos — tinta mais densa que o passo emitia MENOS pontos, quebrando a invariância
+      prometida. Com o fix, as features são idênticas em qualquer densidade (teste de
+      regressão em `test_smoke.py`) e as predições ×3-denso batem 15/15 com as originais.
+      O checkpoint (treinado com o resample antigo) quase não perde: CER 0.815/exact 4.7%.
+- [ ] Avaliar no test (1.199); comparar com literatura.
+- [ ] Retreino limpo com o resample corrigido e `resample_step: 0.008` (pós-fix, o passo
+      0.004 estoura `max_points` em 25% das amostras; 0.008 → p97=1085 e treino ~2× mais
+      rápido). Ganho esperado: pequeno — o salto de verdade vem do MathWriting.
 - [ ] Baixar MathWriting e treinar (`configs/mathwriting.yaml` pronto).
 - **Saída:** métricas comparáveis à literatura de HMER online num split de validação.
 
@@ -101,6 +113,31 @@ ficam fora do git.
       "círculo · 67%" (checkpoint parcial; treino completo em andamento).
 - **Saída atingida:** o mesmo encoder serve matemática e "o que está sendo desenhado".
 - Próximo: mais categorias; triagem automática math/texto/desenho na mesma passada.
+
+## Fase 5 — Equações identificadas e plotadas (R² e R³)  ← *pipeline concluído (2026-07-03)*
+- [x] **Segmentação com lado direito**: `group_expression` varre os dois lados do "="
+      (`lhs_indices`/`rhs_indices`); "já resolvida" também vale para tinta ABAIXO da
+      expressão (gráficos). Fecha o buraco em que o RHS de "x²+y²=4" era ignorado.
+- [x] **Classificador** (`api/analyze.py`): cônicas R² (reta, circunferência, elipse,
+      parábola, hipérbole — com rotação, via autovalores) e quádricas R³ (esfera,
+      elipsoide, paraboloides, hiperboloides, cone, plano) + `y=f(x)` / `z=f(x,y)`
+      via lambdify. Descrição em pt-BR com parâmetros (raio, centro, vértice…).
+- [x] **Gráfico como tinta** (`api/inkplot.py`): eixos com setas/ticks/escala + curva
+      paramétrica (R²) e wireframe isométrico (R³), tudo polilinhas Hershey/numpy —
+      sem matplotlib, sem novo tipo de elemento no caderno.
+- [x] **Integração**: `/page/process` distingue conta (RHS vazio → valor após o "=")
+      de equação (RHS cheio → gráfico+descrição ABAIXO; 1 variável → solução abaixo).
+      Painel mostra "x²+y²=4 → circunferencia · raio 2 · centro (0,0)". 101 testes.
+- [x] **Retreino do CROHME com `resample_step: 0.004`** (`checkpoints/crohme_rs`) —
+      concluído em 2026-07-04 (ver Fase 2): CER 1.41 → 0.81 no valid; servido pela API,
+      com o resample manual removido de `page.py` (canonicalização é só do Recognizer).
+- [x] **E2e com caligrafia real** (2026-07-04): "x²+y²=4" à mão → circunferência com
+      eixos + descrição. Exigiu 4 correções: adoção de sobrescritos que pairam sobre o
+      "=" (segment), beam 16 com escolha da 1ª hipótese *classificável* (equações),
+      `analyze` aceitando qualquer par/trio de letras latinas como eixos, e teto de
+      tamanho no texto-fallback. Limite honesto: o modelo ainda troca símbolos
+      (y→p, 4→8 ⇒ "raio 2.83"); a forma sai certa, o número não — MathWriting resolve.
+- Verificado visualmente no caderno: circunferência, esfera e sela renderizam bem.
 
 ## Explicitamente adiado (não implementar agora)
 - Fusão multimodal (tinta + imagem renderizada).

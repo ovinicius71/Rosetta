@@ -50,6 +50,15 @@ drawing (spatially clustered strokes) goes to a classifier trained on Google
 QuickDraw — **21 categories, 92% validation accuracy** — and the label is written in
 orange ink under the drawing ("gato", "casa", "bicicleta"…), confidence in the toolbar.
 
+**3. Equations get identified and plotted.** Write `x²+y²=4` and the notebook
+recognizes it, classifies it — *"circunferencia · raio 2 · centro (0,0)"* — and
+**sketches the graph with axes** in orange ink right below, R² and R³:
+conics (line, circle, ellipse, parabola, hyperbola), quadrics (sphere, ellipsoid,
+paraboloids, hyperboloids, cone, plane — drawn as isometric wireframes) and arbitrary
+`y = f(x)` / `z = f(x,y)` graphs. Classification is classic linear algebra
+(quadratic-form eigenvalues via SymPy + numpy), so rotated and translated forms work
+too. One-variable equations like `2x+4=10` get their solution (`x = 3`) written below.
+
 Everything persists locally: pages, ink and history survive reloads.
 
 ## 🧠 Architecture: one encoder, multiple heads
@@ -79,16 +88,18 @@ never matter.
 |---|---|---|
 | **0** | Scaffold, InkML→tensors, LaTeX tokenizer, shared ink schema | ✅ |
 | **1** | seq2seq proof: overfit on 32 real CROHME samples | ✅ `exact_match = 1.0` |
-| **2** | Augmentation, beam search, full CROHME training (8.9k, 60 epochs) | ⚠️ trained, but **overfits**: 77% exact on train vs **5% on valid** — retrain with fixed resampling + MathWriting planned |
+| **2** | Augmentation, beam search, full CROHME training (8.9k, 60 epochs) | ✅ retrained with fixed-step resampling: **CER 1.41 → 0.81** on valid (exact 5%), density-invariant by construction — MathWriting is the next jump |
 | **3** | `/recognize` + `/evaluate` (SymPy) + KaTeX rendering | ✅ verified end-to-end |
 | **3.5** | **The notebook**: free-form pages, math detected amid notes, answer drawn as ink | ✅ verified live in the browser |
 | **4** | Sketch head on the same encoder (QuickDraw, 21 classes) | ✅ **92% val accuracy**, live in the notebook |
+| **5** | Equations → identified (conics/quadrics/functions) and plotted as ink, R² & R³ | ✅ pipeline verified; served with the retrained checkpoint |
 
-The honest caveat: the math recognizer currently only generalizes to simple
-expressions — the CROHME-only training memorized its 8.9k samples (diagnosed via a
-density-sensitivity experiment: interpolating the same ink ×3 dropped exact-match from
-12/15 to 0/15). The sketch head, trained from day one with fixed-step resampling,
-shows the fix works: clean 66%→92% progression with no train/val gap.
+The honest caveat: CROHME alone is small, so the math recognizer still struggles with
+long expressions (5% exact on valid) — but the retrain with fixed-step resampling cut
+the character error rate from **1.41 to 0.81** and made recognition **independent of
+pen density by construction**: interpolating the same ink ×3 now yields bit-identical
+features and 15/15 identical predictions (it used to drop exact-match from 12/15 to
+0/15). Scaling to MathWriting (~230k samples) is the next jump.
 Details in [`docs/roadmap.md`](docs/roadmap.md) · decisions in [`docs/adr/`](docs/adr).
 
 ## 🚀 Run the notebook
@@ -130,7 +141,7 @@ python -m hmer_ml.evaluate --config ml/configs/overfit_synth.yaml \
 # math: CROHME (~9k expressions; see docs/datasets.md for download)
 python -m hmer_ml.train --config ml/configs/crohme.yaml
 python -m hmer_ml.evaluate --config ml/configs/crohme.yaml \
-    --ckpt checkpoints/crohme/last.ckpt --root data/crohme/valid --beam 4
+    --ckpt checkpoints/crohme_rs/last.ckpt --root data/crohme/valid --beam 4
 
 # sketches: QuickDraw (Phase 4 — same encoder, classification head)
 python scripts/download_quickdraw.py            # 21 categories, ~170 MB (byte-range)
@@ -143,7 +154,7 @@ length bucketing, and checkpointing with **automatic resume** — interrupt with
 
 | Dataset | Samples | Role |
 |---|---|---|
-| [CROHME](https://www.kaggle.com/datasets/ntcuong2103/crohme2019) (2011–2019) | ~8.9k train + test sets | math — current checkpoint (overfits; see status) |
+| [CROHME](https://www.kaggle.com/datasets/ntcuong2103/crohme2019) (2011–2019) | ~8.9k train + test sets | math — current checkpoint (`crohme_rs`, CER 0.81 on valid) |
 | [MathWriting](https://github.com/google-research/google-research/tree/master/mathwriting) (Google, 2024) | ~230k human + 400k synthetic | math — the real fix for generalization (next) |
 | [QuickDraw](https://github.com/googlecreativelab/quickdraw-dataset) (simplified) | 21 classes × ~5.8k used | sketches — trained, 92% val accuracy |
 
@@ -152,10 +163,10 @@ length bucketing, and checkpointing with **automatic resume** — interrupt with
 ```
 ├── ml/          # PyTorch: data (InkML/QuickDraw), tokenizer, encoder/heads, train loops,
 │   ├── configs/ #   beam search, "=" segmentation. YAML configs with inheritance (_base_)
-│   └── tests/   #   34 tests
+│   └── tests/   #   40 tests
 ├── api/         # FastAPI: /recognize (ink→LaTeX), /evaluate (SymPy), /page/process
 │   └── tests/   #   (notebook: contas amid notes), /sketch/recognize. Hershey ink font.
-│                #   22 tests
+│                #   63 tests
 ├── web/         # Next.js: the notebook — pages, pens/eraser/undo, auto-solve, KaTeX panel
 ├── xournalpp-plugin/  # paused: Lua plugin with the same backend (no stroke events in Lua API)
 ├── scripts/     # serve_api.ps1, dataset downloads, glyph generator, e2e checks
@@ -181,8 +192,9 @@ length bucketing, and checkpointing with **automatic resume** — interrupt with
 
 ## 🗺️ Roadmap
 
-- [ ] **Fix math generalization**: retrain CROHME with `resample_step: 0.004`
-      (train = inference, like the sketch head), then scale to MathWriting
+- [x] **Fix math generalization, step 1**: CROHME retrained with fixed-step
+      resampling (train = inference, like the sketch head) — CER 1.41 → 0.81
+- [ ] **Step 2**: scale to MathWriting (~230k samples), the real generalization jump
 - [ ] Phase 4 (next): more sketch categories; auto-triage math/text/sketch in the
       same pass (replace the `=` pair heuristic with a learned detector)
 - [ ] Report CER/exact-match on the CROHME 2019 test set after the retrain

@@ -1,0 +1,11 @@
+[train] device=cuda amp=True
+[train] 8901 amostras
+[train] indexando comprimentos p/ bucketing (1x, pode demorar)...
+[train] parâmetros: 5.33M
+[train] retomando de checkpoints\crohme_rs\step_1000.ckpt (step=1000, epoch=3)
+[train] epoch    3  loss 2.5820  lr 2.65e-04
+[train] epoch    6  loss 2.3131  lr 2.06e-04
+[train] epoch    9  loss 2.1485  lr 1.75e-04
+[train] epoch   12  loss 2.0097  lr 1.54e-04
+[train] epoch   15  loss 1.8972  lr 1.40e-04
+[train] epoch   18  loss 1.8024  lr 1.29e-04

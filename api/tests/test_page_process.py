@@ -91,9 +91,11 @@ def test_recognizes_and_draws_result(client, monkeypatch):
     sent = fake.calls[0]["strokes"]
     assert len(sent) == 4
 
-    # a tinta enviada foi normalizada (bbox ~[-1,1]) e reamostrada (passos pequenos)
+    # a tinta vai CRUA (coords da página): normalize+resample são do Recognizer,
+    # que aplica o mesmo pré-processamento do treino (via config)
     pts = [p for s in sent for p in s["points"]]
-    assert all(-1.001 <= p["x"] <= 1.001 and -1.001 <= p["y"] <= 1.001 for p in pts)
+    assert min(p["x"] for p in pts) == pytest.approx(15.0)  # borda esquerda do "2"
+    assert max(p["x"] for p in pts) == pytest.approx(65.0)  # borda direita do "3"
 
     # tinta do resultado: cor de marcação, à direita do '=', na mesma linha
     strokes = exprs[0]["strokes"]
@@ -136,6 +138,88 @@ def test_unevaluable_latex_reports_error_without_ink(client, monkeypatch):
     assert exprs[0]["result"] is None
     assert exprs[0]["error"]
     assert exprs[0]["strokes"] == []
+
+
+def _page_equacao():
+    """'<x> <y> = <4>' na linha y≈50 — equação com lado direito."""
+    return {
+        "strokes": [
+            _zigzag(20, 50),  # "x²+y²" (geometria genérica)
+            _zigzag(45, 50),
+            _line(60, 47, 72, 47),  # "="
+            _line(60, 52, 72, 52),
+            _zigzag(95, 50),  # "4"
+        ]
+    }
+
+
+def test_equation_is_classified_and_plotted_below(client, monkeypatch):
+    fake = _with_fake(monkeypatch, "x ^ 2 + y ^ 2 = 4")
+    r = client.post("/page/process", json=_page_equacao())
+    assert r.status_code == 200
+    exprs = r.json()["expressions"]
+    assert len(exprs) == 1
+    e = exprs[0]
+    assert e["kind"] == "circunferencia"
+    assert "raio 2" in e["description"]
+    assert e["result"] is None
+
+    # a equação COMPLETA (5 traços, com o '=') foi ao modelo
+    assert len(fake.calls[0]["strokes"]) == 5
+
+    # gráfico desenhado ABAIXO da equação (equação termina em y≈57)
+    strokes = e["strokes"]
+    assert len(strokes) > 5  # eixos + curva + descrição
+    assert all(s["color"] == RESULT_COLOR for s in strokes)
+    assert min(y for s in strokes for y in s["y"]) > 57
+
+
+def test_equation_second_pass_is_idempotent(client, monkeypatch):
+    _with_fake(monkeypatch, "x ^ 2 + y ^ 2 = 4")
+    page = _page_equacao()
+    first = client.post("/page/process", json=page).json()["expressions"]
+    page["strokes"] += [
+        {"x": s["x"], "y": s["y"], "color": s["color"], "width": s["width"]}
+        for s in first[0]["strokes"]
+    ]
+    r = client.post("/page/process", json=page)
+    assert r.status_code == 200
+    assert r.json()["expressions"] == []
+
+
+class _FakeTopkRecognizer(_FakeRecognizer):
+    def __init__(self, latexes):
+        super().__init__(latexes[0])
+        self.latexes = latexes
+
+    def recognize_topk(self, ink: dict) -> list[str]:
+        self.calls.append(ink)
+        return self.latexes
+
+
+def test_equation_uses_first_classifiable_beam_candidate(client, monkeypatch):
+    """A melhor hipótese não classifica (x²+x²=8, 1 variável) → a 2ª (circunferência)
+    vence. É o que salva leituras com 1 símbolo trocado."""
+    import hmer_api.page as page_mod
+
+    fake = _FakeTopkRecognizer(["X ^ 2 + X ^ 2 = 8", "x ^ 2 + y ^ 2 = 4"])
+    monkeypatch.setattr(page_mod, "get_recognizer", lambda: fake)
+    r = client.post("/page/process", json=_page_equacao())
+    assert r.status_code == 200
+    e = r.json()["expressions"][0]
+    assert e["kind"] == "circunferencia"
+    assert e["latex"] == "x ^ 2 + y ^ 2 = 4"
+
+
+def test_one_var_equation_solves_below(client, monkeypatch):
+    _with_fake(monkeypatch, "2 x + 4 = 10")
+    r = client.post("/page/process", json=_page_equacao())
+    assert r.status_code == 200
+    e = r.json()["expressions"][0]
+    assert e["kind"] is None
+    assert e["result"] == "x = 3"
+    assert e["strokes"]
+    assert min(y for s in e["strokes"] for y in s["y"]) > 57  # abaixo, não à direita
 
 
 def test_mismatched_xy_rejected(client):

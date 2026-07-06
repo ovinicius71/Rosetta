@@ -45,7 +45,9 @@ export interface PageStrokeDto {
 
 export interface ExpressionResultDto {
   latex: string;
-  result: string | null;
+  result: string | null; // valor (contas) ou solução (equações 1-var)
+  kind: string | null; // tipo da curva/superfície ("circunferencia", "esfera"…)
+  description: string | null; // descrição pt-BR quando a equação foi classificada
   error: string | null;
   strokes: PageStrokeDto[]; // tinta do resultado, pronta para desenhar
 }

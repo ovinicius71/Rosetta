@@ -225,7 +225,8 @@ export default function NotebookCanvas({ onSolvedChange }: Props) {
       const newSolved: SolvedConta[] = [];
       let failed = 0;
       for (const e of expressions) {
-        if (e.strokes.length > 0 && e.result) {
+        const resultText = e.result ?? e.description; // valor OU descrição da curva
+        if (e.strokes.length > 0 && resultText) {
           for (const s of e.strokes) {
             newStrokes.push({
               x: s.x,
@@ -235,7 +236,12 @@ export default function NotebookCanvas({ onSolvedChange }: Props) {
               result: true,
             });
           }
-          newSolved.push({ latex: e.latex, result: e.result, at: Date.now() });
+          newSolved.push({
+            latex: e.latex,
+            result: resultText,
+            at: Date.now(),
+            eq: e.description != null,
+          });
         } else {
           failed++;
         }
